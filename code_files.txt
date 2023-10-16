@@ -1,0 +1,231 @@
+models.py
+
+
+from django.db import models
+from django.contrib.auth.models import User
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    # Add other user profile fields
+
+class ExtractedInfo(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    address = models.CharField(max_length=255)
+    income = models.DecimalField(max_digits=10, decimal_places=2)
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------
+
+views.py part
+
+import os
+import pytesseract
+from pdf2image import convert_from_path
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from .models import ExtractedInfo
+from .serializers import ExtractedInfoSerializer
+
+class ExtractedInfoViewSet(viewsets.ModelViewSet):
+    serializer_class = ExtractedInfoSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return ExtractedInfo.objects.filter(user=user)
+
+    def extract_text_from_pdf(self, pdf_path):
+        images = convert_from_path(pdf_path)
+        text = ""
+        for img in images:
+            text += pytesseract.image_to_string(img, lang='eng')
+        return text
+
+    def extract_info_from_text(self, text):
+        # This is a placeholder and should be replaced with the actual extraction logic
+        # Implement your logic to extract name, address, and income from the text
+        # You may use regex or other techniques to extract specific information
+        name = "John Doe"
+        address = "1234 Elm St, City, State"
+        income = 50000.0
+        return name, address, income
+
+    def create(self, request):
+        file = request.FILES.get('file')
+
+        # Save the uploaded PDF file temporarily
+        pdf_path = 'temp.pdf'
+        with open(pdf_path, 'wb') as temp_file:
+            for chunk in file.chunks():
+                temp_file.write(chunk)
+
+        # Extract text from the PDF using OCR
+        extracted_text = self.extract_text_from_pdf(pdf_path)
+
+        # Extract specific details (name, address, income) from the extracted text
+        name, address, income = self.extract_info_from_text(extracted_text)
+
+        # Delete the temporary PDF file
+        os.remove(pdf_path)
+
+        user = request.user
+        extracted_info = ExtractedInfo.objects.create(user=user, name=name, address=address, income=income)
+        extracted_info.save()
+
+        serializer = self.serializer_class(extracted_info)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+# User Authentication
+# Django User Sign-up
+
+from django.contrib.auth.models import User
+
+def sign_up(request):
+    if request.method == 'POST':
+        username = request.POST['username']
+        password = request.POST['password']
+        email = request.POST['email']
+        
+        user = User.objects.create_user(username=username, password=password, email=email)
+        user.save()
+        
+        # Redirect to login page or home page
+        # Add appropriate error handling
+
+# File Upload
+# Django File Upload
+
+from django.core.files.storage import FileSystemStorage
+
+def upload_file(request):
+    if request.method == 'POST' and request.FILES['w2_file']:
+        w2_file = request.FILES['w2_file']
+        
+        fs = FileSystemStorage()
+        fs.save(w2_file.name, w2_file)
+        
+        # Add validation for PDF file format
+        # Redirect to appropriate page or display success message
+
+# OCR Implementation
+# Python OCR Library - pytesseract
+
+import pytesseract
+from PIL import Image
+
+def extract_details(image_path):
+    image = Image.open(image_path)
+    text = pytesseract.image_to_string(image)
+    
+    # Extract specific details from the text
+    # Return the extracted details
+
+# Database Storage
+# Django Model for storing extracted information
+
+from django.db import models
+
+class ExtractedInformation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    address = models.CharField(max_length=200)
+    income = models.DecimalField(max_digits=10, decimal_places=2)
+
+    # Add any additional fields as required
+
+# Frontend
+# Next.js Frontend Design
+
+// Add Next.js frontend code here
+
+# Backend
+# Django Backend Setup
+
+// Add Django backend code here
+
+# Testing
+# Django Testing
+
+// Add Django testing code here
+
+# Documentation and Deployment
+# README.md
+
+// Add instructions for setting up and running the application
+// Include any other pertinent details in the README file
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------
+
+import React, { useState } from 'react';
+
+const Home = () => {
+  const [file, setFile] = useState(null);
+
+  const handleFileUpload = (event) => {
+    const selectedFile = event.target.files[0];
+    setFile(selectedFile);
+  };
+
+  const handleFileSubmit = async () => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('API_ENDPOINT', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      console.log('Extracted info:', data);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    }
+  };
+
+  return (
+    <div>
+      <input type="file" accept=".pdf" onChange={handleFileUpload} />
+      <button onClick={handleFileSubmit}>Upload and Extract</button>
+    </div>
+  );
+};
+
+export default Home;
